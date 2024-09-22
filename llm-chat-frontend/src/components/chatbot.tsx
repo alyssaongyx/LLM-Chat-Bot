@@ -5,6 +5,7 @@ import { Message } from "./message";
 import styles from "../styles/chatbot.module.css";
 import { Logo } from "./logo";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import LLMProperties from "./LLMProperties";
 
 const API_URL = "/api/chat";
 
@@ -124,6 +125,9 @@ export const Chatbot: React.FC = () => {
       </ScrollArea>
       <Box p="sm">
         <ChatInput onSendMessage={handleSendMessage} />
+      </Box>
+      <Box p="sm" style={{ marginTop: "auto" }}>
+        <LLMProperties />
       </Box>
     </Box>
   );

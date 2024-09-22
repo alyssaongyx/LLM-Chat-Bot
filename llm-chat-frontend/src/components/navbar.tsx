@@ -8,7 +8,7 @@ export const Navbar: React.FC = () => {
     <Box h={60} className={styles.navbar}>
       <Group className={styles.group}>
         <Title order={3} className={styles.title}>
-          OPENAI CHATBOT
+          OpenAI Chatbot🤖
         </Title>
         <Button
           component="a"
