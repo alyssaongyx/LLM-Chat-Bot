@@ -1,17 +1,10 @@
-import React, { useState } from "react";
-import {
-  Box,
-  ScrollArea,
-  Title,
-  Text,
-  Anchor,
-  Center,
-  Flex,
-} from "@mantine/core";
+import React from "react";
+import { Box, ScrollArea, Text, Anchor, Center, Flex } from "@mantine/core";
 import { ChatInput } from "./input";
 import { Message } from "./message";
 import styles from "../styles/chatbot.module.css";
-import { Logo } from "./logo"; // Import the new Logo component
+import { Logo } from "./logo";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 const API_URL = "/api/chat";
 
@@ -21,13 +14,26 @@ interface MessageType {
   loading?: boolean;
 }
 
-export const Chatbot: React.FC = () => {
-  const [messages, setMessages] = useState<MessageType[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
+interface ConversationData {
+  messages: MessageType[];
+  conversationId: string;
+}
 
-  const fetchResponse = async (prompt: string) => {
-    try {
+export const Chatbot: React.FC = () => {
+  const queryClient = useQueryClient();
+
+  const chatMutation = useMutation<
+    { response: string; conversationId: string },
+    Error,
+    { prompt: string; conversationId: string | null }
+  >({
+    mutationFn: async ({
+      prompt,
+      conversationId,
+    }: {
+      prompt: string;
+      conversationId: string | null;
+    }) => {
       const response = await fetch(API_URL, {
         method: "POST",
         headers: {
@@ -37,42 +43,51 @@ export const Chatbot: React.FC = () => {
       });
 
       if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error(
-            "Too many requests. Please wait a moment before trying again."
-          );
-        }
         throw new Error(`Error: ${response.status}`);
       }
 
-      const data = await response.json();
-      setConversationId(data.conversationId);
-      return data.response;
-    } catch (error) {
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(
+        ["conversation", data.conversationId],
+        (oldData: any) => ({
+          ...oldData,
+          messages: [
+            ...(oldData?.messages || []),
+            { message: data.response, sender: "bot" },
+          ],
+        })
+      );
+    },
+    onError: (error) => {
       console.error("Error fetching the API response.", error);
-      return "Sorry, something went wrong.";
-    }
-  };
+    },
+  });
+
+  const conversationData = queryClient.getQueryData<ConversationData>([
+    "conversation",
+    chatMutation.data?.conversationId,
+  ]);
+  const messages = conversationData?.messages || [];
 
   const handleSendMessage = async (message: string) => {
-    const userMessage = { message, sender: "user" };
-    setMessages([
-      ...messages,
-      userMessage,
-      { message: "", sender: "bot", loading: true },
-    ]);
-    setIsLoading(true);
+    const userMessage: MessageType = { message, sender: "user" };
+    const currentConversationId = chatMutation.data?.conversationId || null;
 
-    const botResponse = await fetchResponse(message);
-
-    setMessages((prev) =>
-      prev.map((msg, index) =>
-        index === prev.length - 1
-          ? { message: botResponse, sender: "bot", loading: false }
-          : msg
-      )
+    queryClient.setQueryData<ConversationData>(
+      ["conversation", currentConversationId],
+      (oldData) => ({
+        ...oldData,
+        messages: [...(oldData?.messages || []), userMessage],
+        conversationId: currentConversationId || "",
+      })
     );
-    setIsLoading(false);
+
+    chatMutation.mutate({
+      prompt: message,
+      conversationId: currentConversationId,
+    });
   };
 
   return (
@@ -81,7 +96,7 @@ export const Chatbot: React.FC = () => {
         {messages.length === 0 ? (
           <Center style={{ height: "70vh" }}>
             <Flex justify="center" align="center" direction="column">
-              <Logo width={200} height={80} />{" "}
+              <Logo width={200} height={80} />
               <Text c="dimmed">
                 Chat with{" "}
                 <Anchor href="https://openai.com/" target="_blank">
@@ -93,12 +108,14 @@ export const Chatbot: React.FC = () => {
           </Center>
         ) : (
           <Box className={styles.messageBox}>
-            {messages.map((msg, index) => (
+            {messages.map((msg: MessageType, index: number) => (
               <div key={index} className={styles.messageContainer}>
                 <Message
                   message={msg.message}
                   sender={msg.sender}
-                  isLoading={(msg.loading && isLoading) || false}
+                  isLoading={
+                    chatMutation.isPending && index === messages.length - 1
+                  }
                 />
               </div>
             ))}
