@@ -1,0 +1,38 @@
+.userMessage {
+  text-align: right;
+  height: 100%;
+  padding: 16px;
+  margin-bottom: 8px;
+}
+
+.botMessage {
+  text-align: left;
+  margin-bottom: 8px;
+  height: 100%;
+  padding: 16px;
+  background-color: rgba(160, 160, 160, 0.1);
+}
+
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  background-color: white;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 100%;
+  padding: 0 20px;
+}
+
+.title {
+  padding: 10px 0;
+}
+
+.button {
+  margin-left: auto;
+}
