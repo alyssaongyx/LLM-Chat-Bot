@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from app.models import Conversation, ConversationCreate, ConversationUpdate, Prompt, QueryRoleType
 from app.services.llm_service import LLMService
 from typing import List
 from uuid import UUID
+from openai import RateLimitError, APIError
 
 router = APIRouter()
 llm_service = LLMService()
@@ -44,8 +45,8 @@ async def delete_conversation(id: UUID):
     
     await conversation.delete()
 
-@router.post("/queries", status_code=201, response_model=dict)
-async def create_prompt(id: UUID, prompt: Prompt):
+@router.post("/queries", status_code=201)
+async def create_prompt(prompt: Prompt, id: UUID = Query(...)):
     conversation = await Conversation.get(id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -57,8 +58,12 @@ async def create_prompt(id: UUID, prompt: Prompt):
             response, tokens = await llm_service.generate_response(str(conversation.id), conversation.messages)
             conversation.messages.append(Prompt(role=QueryRoleType.assistant, content=response))
             conversation.tokens += tokens
+        except RateLimitError as e:
+            raise HTTPException(status_code=429, detail="API rate limit exceeded. Please try again later.")
+        except APIError as e:
+            raise HTTPException(status_code=500, detail="An error occurred while processing your request.")
         except Exception as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
     
     await conversation.save()
     return {"id": str(conversation.id)}
