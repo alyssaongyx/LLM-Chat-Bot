@@ -5,7 +5,7 @@ from typing import List
 from uuid import UUID
 
 router = APIRouter()
-llm_service = LLMService("your-openai-api-key")
+llm_service = LLMService()
 
 @router.post("/conversations", status_code=201, response_model=dict)
 async def create_conversation(conversation: ConversationCreate):

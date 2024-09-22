@@ -4,7 +4,7 @@ from typing import List, Tuple
 
 class LLMService:
     def __init__(self, api_key: str):
-        openai.api_key = api_key
+        openai.api_key = os.getenv("OPENAI_API_KEY")
 
     async def generate_response(self, conversation_id: str, messages: List[Prompt]) -> Tuple[str, int]:
         response = openai.ChatCompletion.create(
