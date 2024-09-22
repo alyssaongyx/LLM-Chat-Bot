@@ -1,17 +1,13 @@
-import { useState, useEffect } from "react";
-import { List, Button, Text } from "@mantine/core";
+import { useState, useEffect, Dispatch, SetStateAction } from "react";
+import { List, Button, Text, Paper } from "@mantine/core";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
+import { Conversation } from "../types/conversation";
 
 const API_URL = "http://localhost:8000";
 
-interface Conversation {
-  id: string;
-  name: string;
-}
-
 interface ConversationListProps {
-  onSelectConversation: (conversation: Conversation) => void;
+  onSelectConversation: Dispatch<SetStateAction<Conversation | null>>;
   selectedConversation: Conversation | null;
 }
 
@@ -40,8 +36,9 @@ export default function ConversationList({
       });
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: (newConversation: Conversation) => {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      onSelectConversation(newConversation);
     },
   });
 
@@ -50,23 +47,28 @@ export default function ConversationList({
 
   return (
     <>
-      <Button onClick={() => createConversation.mutate()}>
+      <Button onClick={() => createConversation.mutate()} fullWidth mb="md">
         New Conversation
       </Button>
       <List spacing="xs" size="sm" mb={12} center>
         {conversations?.map((conversation) => (
-          <List.Item
-            key={conversation.id}
-            onClick={() => onSelectConversation(conversation)}
-            style={{
-              cursor: "pointer",
-              backgroundColor:
-                selectedConversation?.id === conversation.id
-                  ? "#f0f0f0"
-                  : "transparent",
-            }}
-          >
-            {conversation.name}
+          <List.Item key={conversation.id}>
+            <Paper
+              p="xs"
+              onClick={() => onSelectConversation(conversation)}
+              style={(theme) => ({
+                backgroundColor:
+                  selectedConversation?.id === conversation.id
+                    ? theme.colors.blue[1]
+                    : "transparent",
+                cursor: "pointer",
+                "&:hover": {
+                  backgroundColor: theme.colors.gray[1],
+                },
+              })}
+            >
+              {conversation.name}
+            </Paper>
           </List.Item>
         ))}
       </List>

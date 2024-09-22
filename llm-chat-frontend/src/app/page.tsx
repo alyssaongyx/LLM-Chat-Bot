@@ -1,78 +1,66 @@
 "use client";
 
-import { useState } from "react";
-import {
-  AppShell,
-  Navbar,
-  Header,
-  Text,
-  MediaQuery,
-  Burger,
-  useMantineTheme,
-} from "@mantine/core";
+import { AppShell, Text, Button, useMantineTheme } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { Conversation } from "../types/conversation";
 import ConversationList from "../components/ConversationList";
 import ChatArea from "../components/ChatArea";
 import LLMProperties from "../components/LLMProperties";
+import { useState } from "react";
 
 export default function HomePage() {
   const theme = useMantineTheme();
-  const [opened, setOpened] = useState(false);
-  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [opened, { toggle }] = useDisclosure();
+  const [selectedConversation, setSelectedConversation] =
+    useState<Conversation | null>(null);
 
   return (
     <AppShell
-      styles={{
-        main: {
-          background:
-            theme.colorScheme === "dark"
-              ? theme.colors.dark[8]
-              : theme.colors.gray[0],
-        },
+      padding="md"
+      navbar={{
+        width: 300,
+        breakpoint: "sm",
+        collapsed: { mobile: !opened },
       }}
-      navbarOffsetBreakpoint="sm"
-      asideOffsetBreakpoint="sm"
-      navbar={
-        <Navbar
-          p="md"
-          hiddenBreakpoint="sm"
-          hidden={!opened}
-          width={{ sm: 200, lg: 300 }}
-        >
-          <ConversationList
-            onSelectConversation={setSelectedConversation}
-            selectedConversation={selectedConversation}
-          />
-        </Navbar>
-      }
-      header={
-        <Header height={{ base: 50, md: 70 }} p="md">
-          <div
-            style={{ display: "flex", alignItems: "center", height: "100%" }}
-          >
-            <MediaQuery largerThan="sm" styles={{ display: "none" }}>
-              <Burger
-                opened={opened}
-                onClick={() => setOpened((o) => !o)}
-                size="sm"
-                color={theme.colors.gray[6]}
-                mr="xl"
-              />
-            </MediaQuery>
-            <Text>LLM Chat Application</Text>
-          </div>
-        </Header>
-      }
+      header={{
+        height: 60,
+      }}
     >
-      {selectedConversation ? (
-        <>
-          <ChatArea conversation={selectedConversation} />
-          <LLMProperties conversation={selectedConversation} />
-        </>
-      ) : (
-        <Text>
-          Select a conversation or create a new one to start chatting.
-        </Text>
-      )}
+      <AppShell.Navbar p="xs">
+        <ConversationList
+          onSelectConversation={setSelectedConversation}
+          selectedConversation={selectedConversation}
+        />
+      </AppShell.Navbar>
+
+      <AppShell.Header>
+        <div style={{ display: "flex", alignItems: "center", height: "100%" }}>
+          <Button
+            onClick={toggle}
+            variant="subtle"
+            size="sm"
+            style={{ marginRight: "1rem" }}
+          >
+            {opened ? "Close" : "Menu"}
+          </Button>
+          <Text size="xl" fw={700}>
+            LLM Chat Application
+          </Text>
+        </div>
+      </AppShell.Header>
+
+      <AppShell.Main>
+        {selectedConversation ? (
+          <>
+            <ChatArea conversation={selectedConversation} />
+            <LLMProperties conversation={selectedConversation} />
+          </>
+        ) : (
+          <Text ta="center" size="xl" mt="xl">
+            Select a conversation or create a new one to start chatting.
+          </Text>
+        )}
+      </AppShell.Main>
     </AppShell>
   );
 }
