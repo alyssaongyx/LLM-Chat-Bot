@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://backend:8000";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://backend:8000/api";
 
 export async function POST(req: NextRequest) {
   try {

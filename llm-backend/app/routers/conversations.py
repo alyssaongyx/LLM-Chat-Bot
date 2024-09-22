@@ -1,69 +1,105 @@
-from fastapi import APIRouter, HTTPException, Query
-from app.models import Conversation, ConversationCreate, ConversationUpdate, Prompt, QueryRoleType
+from fastapi import APIRouter, HTTPException, Response
+from app.models import AnonymizedPrompt, Conversation, ConversationPOST, ConversationFULL, Prompt, ConversationPUT, QueryRoleType
 from app.services.llm_service import LLMService
 from typing import List
 from uuid import UUID
-from openai import RateLimitError, APIError
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/conversations",
+    tags=["Conversations"],
+    responses={404: {"description": "Not found"}},
+)
+
 llm_service = LLMService()
 
-@router.post("/conversations", status_code=201, response_model=dict)
-async def create_conversation(conversation: ConversationCreate):
-    new_conversation = Conversation(**conversation.dict())
-    await new_conversation.insert()
-    return {"id": str(new_conversation.id)}
+@router.post("/", status_code=201, response_model=dict, summary="Creates a new Conversation with an LLM model")
+async def create_conversation(conversation: ConversationPOST):
+    """
+    Create a new conversation with the following parameters:
+    - **name**: A string that represents the name of the conversation
+    - **params**: A dictionary of parameters for the conversation
+    """
+    try:
+        new_conversation = Conversation(name=conversation.name, params=conversation.params)
+        await new_conversation.insert()
+        return {"id": str(new_conversation.id)}
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail="Invalid parameters provided")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.get("/conversations", response_model=List[Conversation])
+@router.get("/", response_model=List[Conversation], summary="Retrieve a user's Conversations")
 async def list_conversations():
-    return await Conversation.find_all().to_list()
+    """
+    Retrieve all conversations for the current user.
+    """
+    try:
+        return await Conversation.find_all().to_list()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.get("/conversations/{id}", response_model=Conversation)
+@router.get("/{id}", response_model=ConversationFULL, summary="Retrieves the Conversation History")
 async def get_conversation(id: UUID):
-    conversation = await Conversation.get(id)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    return conversation
+    """
+    Retrieve a specific conversation by its ID.
+    """
+    try:
+        conversation = await Conversation.get(id)
+        if not conversation:
+            raise HTTPException(
+                status_code=404,
+                detail="Specified resource(s) was not found"
+            )
+        anonymized_prompts = await AnonymizedPrompt.find({"conversation_id": str(id)}).to_list()
+        messages = [
+            Prompt(role=QueryRoleType.user if ap.prompt else QueryRoleType.assistant, content=ap.prompt or ap.response)
+            for ap in anonymized_prompts
+        ]
+        return ConversationFULL(
+            id=str(conversation.id),
+            name=conversation.name,
+            params=conversation.params,
+            tokens=conversation.tokens,
+            messages=messages
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.put("/conversations/{id}", status_code=204)
-async def update_conversation(id: UUID, update: ConversationUpdate):
-    conversation = await Conversation.get(id)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    
-    update_data = update.dict(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(conversation, key, value)
-    
-    await conversation.save()
+@router.put("/{id}", status_code=204, summary="Updates the LLM properties of a Conversation")
+async def update_conversation(id: UUID, update: ConversationPUT):
+    """
+    Update a specific conversation by its ID.
+    """
+    try:
+        conversation = await Conversation.get(id)
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Specified resource(s) was not found")
+        
+        if update.name is not None:
+            conversation.name = update.name
+        if update.params is not None:
+            conversation.params.update(update.params)
+        
+        await conversation.save()
+        return Response(status_code=204)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail="Invalid parameters provided")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.delete("/conversations/{id}", status_code=204)
+@router.delete("/{id}", status_code=204, summary="Deletes the Conversation")
 async def delete_conversation(id: UUID):
-    conversation = await Conversation.get(id)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    
-    await conversation.delete()
-
-@router.post("/queries", status_code=201)
-async def create_prompt(prompt: Prompt, id: UUID = Query(...)):
-    conversation = await Conversation.get(id)
-    if not conversation:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    
-    conversation.messages.append(prompt)
-    
-    if prompt.role == QueryRoleType.user:
-        try:
-            response, tokens = await llm_service.generate_response(str(conversation.id), conversation.messages)
-            conversation.messages.append(Prompt(role=QueryRoleType.assistant, content=response))
-            conversation.tokens += tokens
-        except RateLimitError as e:
-            raise HTTPException(status_code=429, detail="API rate limit exceeded. Please try again later.")
-        except APIError as e:
-            raise HTTPException(status_code=500, detail="An error occurred while processing your request.")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
-    
-    await conversation.save()
-    return {"id": str(conversation.id)}
+    """
+    Delete a specific conversation by its ID.
+    """
+    try:
+        conversation = await Conversation.get(id)
+        if not conversation:
+            raise HTTPException(
+                status_code=404,
+                detail="Specified resource(s) was not found"
+            )
+        await conversation.delete()
+        return Response(status_code=204)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Internal server error")
