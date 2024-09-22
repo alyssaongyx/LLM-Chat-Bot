@@ -1,3 +1,4 @@
+from enum import Enum
 from beanie import Document
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
