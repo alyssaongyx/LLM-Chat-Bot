@@ -1,4 +1,3 @@
-// components/input.tsx
 import React, { useState, KeyboardEvent } from "react";
 import { Textarea, ActionIcon, Group } from "@mantine/core";
 import { IconSend } from "@tabler/icons-react";
